@@ -98,9 +98,10 @@ void PhysicalCardReader::eatCard() const
     old_p.append(name);
 
     std::filesystem::path new_p{atmSlots};
-    new_p.append(name + "." + std::to_string(count))}
+    new_p.append(name + "." + std::to_string(count))
+}
 
-    std::filesystem::rename(old_p, new_p);
+std::filesystem::rename(old_p, new_p);
 }
 
 // The constructor for CardReader calls the constructor of its
@@ -127,7 +128,7 @@ bool CardReader::readCard() const
     {
         buf = physicalCardReader.readinfo();
     }
-    catch (const std::ifstream::failure& e)
+    catch (const std::ifstream::failure &e)
     {
         // TODO: How to differentiate file not found from short read?
 
@@ -142,7 +143,7 @@ bool CardReader::readCard() const
     // We have the information, parse it.
     // If the account number is bad, return 1 and eject.
 
-    const string account{ buf.substr(0, 7) };
+    const string account{buf.substr(0, 7)};
 
     if (badAccount(account))
     {
@@ -152,7 +153,7 @@ bool CardReader::readCard() const
 
     // If the PIN is bad, return 1 and eject.
 
-    const string pin{ buf.substr(8, 4) };
+    const string pin{buf.substr(8, 4)};
 
     if (isBadPin(pin)
     {
@@ -171,7 +172,7 @@ bool CardReader::readCard() const
 // two separate key abstractions, i.e., the SuperKeypad and
 // the CardReader. Both return 0 on success, 1 on failure.
 
-bool CardReader::getAccount(string& acc) const
+bool CardReader::getAccount(string &acc) const
 {
     if (validCard)
     {
@@ -181,7 +182,7 @@ bool CardReader::getAccount(string& acc) const
     return validCard;
 }
 
-bool CardReader::getPin(string& p) const
+bool CardReader::getPin(string &p) const
 {
     if (validCard)
     {
@@ -233,7 +234,7 @@ char Keypad::getKey()
     return enabled ? std::getchar() : '\0';
 }
 
-void DisplayScreen::displayMsg(const string& msg)
+void DisplayScreen::displayMsg(const string &msg)
 {
     std::cout << "@ATM Display@ " << msg << std::endl;
 }
@@ -250,10 +251,9 @@ SuperKeypad::SuperKeypad()
 // get_transaction() methods provide more than enough cohesion
 // of data to justify the SuperKeypad's existence.
 
-void SuperKeypad::displayMsg(const string & msg)
+void SuperKeypad::displayMsg(const string &msg)
 {
     displayScreen->displayMsg(msg)
-
 }
 
 // The verify_pin method enables the keypad, prompts the user
@@ -261,22 +261,15 @@ void SuperKeypad::displayMsg(const string & msg)
 // PIN. The method returns zero on success, nonzero
 // on failure.
 
-int SuperKeypad::verifyPin(const string & pinToVerify)
+int SuperKeypad::verifyPin(const string &pinToVerify)
 {
     keypad->enable();
     DisplayScreen->displayMsg("Enter Pin Number: ")
-    string pin;
-    // TODO: better way of doing this? algorithm?
-    while (true) {
-        c = keypad->getkey();
-        if (c == '\n')
-        {
-            break;
-        }
-
+        string pin;
+    while ((char c = keypad->getKey()) != EnterKey)
+    {
         pin += c;
     }
-    std::getline(std::cin, pin);
     keypad->disable();
     return pin == pinToVerify;
 }
@@ -289,10 +282,13 @@ int SuperKeypad::verifyPin(const string & pinToVerify)
 // and hidden in the SuperKeypad class. Any classes higher in the
 // system are oblivious to the case analysis.
 
-Transaction *SuperKeypad::getTransaction(const string &, const string &);
+Transaction *SuperKeypad::getTransaction(const string &account, const string &pin);
 {
-    keypad->enable();
+    std::string transactionAccount(account);
+    char transType;
+    double amount;
 
+    keypad->enable();
     do
     {
         displayScreen->displayMsg("Select a Transaction");
@@ -302,12 +298,154 @@ Transaction *SuperKeypad::getTransaction(const string &, const string &);
         displayScreen->displayMsg("  T)ransfer");
         displayScreen->displayMsg("  Q)uit");
         transType = keypad->getKey();
-        // TODO: while (keypad->getKey() != EnterKey);
+        while (keypad->getKey() != EnterKey) /*nothing*/
+            ;
     } while (transType != 'W' && transType != 'D' &&
-        transType != 'B' && transType != 'T' && transType != 'Q');
+             transType != 'B' && transType != 'T' && transType != 'Q');
 
-    if transType == 'Q')
+    if (transType == 'Q')
     {
         return NULL;
     }
+
+    DisplayScreen->displayMsg("Enter Account Type (S/C): ");
+    transactionAccount += keypad->getKey();
+    while (keypad->getKey() != EnterKey) /*nothing*/
+        ;
+
+    if (transType != 'B')
+    {
+        DisplayScreen->displayMsg("Enter Amount: ");
+        std::string amount_str;
+        while ((char c = keypad->getKey()) != EnterKey)
+        {
+            amount_str += c;
+        }
+        amount = std::atof(amount_str);
+    }
+
+    if (transType == 'T')
+    {
+        display->displayMsg("Enter Target Account Number: ");
+        std::string target_account;
+        while ((char c = keypad->getKey()) != EnterKey)
+        {
+            target_account += c;
+        }
+
+        display->displayMsg("Enter Target Account Type (S/C): ");
+        target_account += keypad->getKey();
+    }
+    switch (transType)
+    {
+    case 'W':
+        return make_unique<Withdraw>(transactionAccount, pin, amount);
+    case 'D':
+        return make_unique<Deposit>(transactionAccount, pin, amount);
+    case 'B':
+        return make_unique<Balance>(transactionAccount, pin);
+    case 'T':
+        return make_unique<Transfer>(transactionAccount, pin, targetAccount, account);
+    default:
+        std::cerr << "Unknown type in get_transaction switch statement" << std::endl;
+        return NULL;
+    }
+}
+
+CashDispenser::CashDispenser(unsigned int initialCash) : cashOnHand{initialCash}
+{
+}
+
+bool CashDispenser::enoughCash(unsigned int amount)
+{
+    return amount <= cashOnHand;
+}
+
+// We can give out only multiples of $10. The reader may want to
+// elaborate on this class by giving it fixed numbers of $20 bills,
+// $10s, $5's, etc. Some ATMs allow for the dispensing of stamps,
+// theater tickets, etc., as well. Many warn the user that they are
+// out of $10 bills and will dispense only multiples of $20. All of
+// these items can be added to this class without impact on the rest
+// of the system.
+
+bool CashDispenser::dispense(unsigned int amount)
+{
+    amount -= amount % 10;
+    if (enoughCash(amount))
+    {
+        std::cout << "@CashDispenser@ Giving the user " << amount << " cash" << std::endl;
+        return true;
+    }
+
+    return false;
+ }
+
+
+bool DepositSlot::retrieveEnvelope()
+{
+    std::cout << "@DepositSlot@ Getting an envelope from the user" << std::endl;
+    return true;
+}
+
+// The receipt printer simulates the printing of receipts by
+// creationg a Receipts file in the current working directory.
+// Again, the reader can elaborate on this class, adding a number
+// of error checks, paper availability, etc. Like the cash
+// dispenser, this is left as an exercise to th e reader since it
+// adds no pedagogical benefit to this example.
+
+void ReceiptPrinter::print(const TransactionList& translist)
+{
+    std::cout << "@@ReceiptPrinter@ Your receipt is as follows:" << std::endl;
+
+    // TODO: Write to file "receipt", or if that fails, write to stdout
+    translist.print(fd);
+}
+
+// The BankProxy is an extremely important class. It is the
+// representatikve of the Bank class within the ATM application. It
+// is merely a wrapper for the Network class, which is a wrapper
+// itself for which tarnsport mechanism a distributed process is
+// going to use for communication. In this example, I chose to
+// simulate the network, but readers are free to sue any network
+// or byte-transfer mechanism they wish. The application is
+// completely independent of this mechanism. (Note: Changes in the
+// byte-transfer mechanism affect only the Network class's
+// implementation.)
+
+BankProxy::BankProxy(Network& n)
+{
+    network = n;
+}
+
+// When a BankProxy needs to process a transaction, it asks its
+// Network object to send it. Assuming the send works correctly,
+// the method then asks the Network for a response, which takes the
+// form of a status integer (0, 1, indicating success or failure on
+// part of the real Bank class living in the bank's application
+// space). If other Transaction application-specific data is
+// required, then it is sent to the appropriate transaction's
+// update message. This is to allow the Bank to update the state of
+// a transaction in the ATM's application space from changes
+// generated from the Bank's application space. Currently, only
+// the Balance derived transaction users this method to update it's
+// balance from the account in the Bank's application space.
+
+bool BankProxy::process(const Transaction& t)
+{
+    if(!network.send(t))
+    {
+        return false;
+    }
+
+    int status;
+
+    count = network.receive(status, other_info);
+    if (count)
+    {
+        t.update(other_info, count);
+    }
+
+    return status;
 }

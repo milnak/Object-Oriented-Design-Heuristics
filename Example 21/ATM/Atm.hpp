@@ -80,8 +80,8 @@ public:
     CardReader(const string &);
 
     bool readCard() const;
-    bool getAccount(string&) const;
-    bool getPin(string&) const;
+    bool getAccount(string &) const;
+    bool getPin(string &) const;
     void ejectCard() const;
     void eatCard() const;
 };
@@ -119,24 +119,24 @@ public:
 
 class CashDispenser
 {
-    int cashOnHand;
+    unsigned int cashOnHand;
 
 public:
-    CashDispenser(int);
-    int enoughCash(int);
-    int dispense(int);
+    CashDispenser(unsigned int);
+    bool enoughCash(unsigned int);
+    bool dispense(unsigned int);
 };
 
 class DepositSlot
 {
 public:
-    int retrieveEnvelope();
+    bool retrieveEnvelope();
 };
 
 class ReceiptPrinter
 {
 public:
-    void print(TransactionList *);
+    void print(const TransactionList &);
 };
 
 // The BankProxy class is the representative of the Bank class in
@@ -146,11 +146,12 @@ public:
 
 class BankProxy
 {
-    Network *network;
+    // TODO: should this be a shared_pointer? What's ownership?
+    Network &network;
 
 public:
-    BankProxy(Network *);
-    int process(Transaction *);
+    BankProxy(Network &);
+    bool process(const Transaction &);
 };
 
 class ATM
