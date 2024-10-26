@@ -3,4 +3,6 @@
 
 const char EnterKey = '\n';
 
+const unsigned int MaxTransactionAtm = 1000;
+
 #endif

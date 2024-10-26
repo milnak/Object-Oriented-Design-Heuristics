@@ -13,6 +13,7 @@
 #define NETWORK_HPP
 
 #include <memory>
+#include <string>
 
 class Transaction;
 

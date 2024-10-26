@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <streambuf>
 
 // Definition of the two card slots in the ATM system, the
 // card reader's slot, where a user inserts his or her card,
@@ -64,8 +65,9 @@ std::string PhysicalCardReader::readinfo() const
 {
     std::filesystem::path file{cardSlots.append(name)};
 
+    // TODO: catch (const std::system_error & e) and check e.code()
     std::ifstream ifs(file);
-    ifs.exceptions(std::ios::failbit);
+    ifs.exceptions(std::ios::failbit | std::ifstream::badbit);
 
     std::string info;
     std::getline(ifs, info);
@@ -327,19 +329,21 @@ std::unique_ptr<Transaction> SuperKeypad::getTransaction(const std::string &acco
         amount = std::atof(amount_str.c_str());
     }
 
+    std::string targetAccount;
+
     if (transType == 'T')
     {
         displayScreen->displayMsg("Enter Target Account Number: ");
-        std::string target_account;
         char c;
         while ((c = keypad->getKey()) != EnterKey)
         {
-            target_account += c;
+            targetAccount += c;
         }
 
         displayScreen->displayMsg("Enter Target Account Type (S/C): ");
-        target_account += keypad->getKey();
+        targetAccount += keypad->getKey();
     }
+
     switch (transType)
     {
     case 'W':
@@ -398,12 +402,26 @@ bool DepositSlot::retrieveEnvelope()
 // dispenser, this is left as an exercise to th e reader since it
 // adds no pedagogical benefit to this example.
 
-void ReceiptPrinter::print(const TransactionList &translist)
+void ReceiptPrinter::print(const TransactionList &transactionList)
 {
     std::cout << "@@ReceiptPrinter@ Your receipt is as follows:" << std::endl;
 
-    // TODO: Write to file "receipt", or if that fails, write to stdout
-    translist.print(fd);
+    std::streambuf *buf;
+    std::ofstream ofs;
+
+    // Attempt to write to "receipt". If that fails, write to stdout.
+    try
+    {
+        ofs.exceptions(std::ios::failbit | std::ifstream::badbit);
+        ofs.open("receipt");
+        buf = ofs.rdbuf();
+    }
+    catch (const std::ifstream::failure &e)
+    {
+        buf = std::cout.rdbuf();
+    }
+
+    transactionList.print(buf);
 }
 
 // The BankProxy is an extremely important class. It is the
@@ -417,9 +435,9 @@ void ReceiptPrinter::print(const TransactionList &translist)
 // byte-transfer mechanism affect only the Network class's
 // implementation.)
 
-BankProxy::BankProxy(Network &n)
+BankProxy::BankProxy(std::unique_ptr<Network> &n)
 {
-    network = n;
+    network = std::move(n);
 }
 
 // When a BankProxy needs to process a transaction, it asks its
@@ -437,17 +455,17 @@ BankProxy::BankProxy(Network &n)
 
 bool BankProxy::process(const Transaction &t)
 {
-    if (!network.send(t))
+    if (!network->send(t))
     {
         return false;
     }
 
     int status;
 
-    const std::string other_info{network.receive(status)};
+    const std::string other_info{network->receive(status)};
     if (!other_info.empty())
     {
-        t.update(other_info, count);
+        t.update(other_info);
     }
 
     return status;
@@ -457,15 +475,15 @@ bool BankProxy::process(const Transaction &t)
 // to its PhysicalCardReader (only needed for a simulation), and its
 // initial cash.
 
-ATM::ATM(const BankProxy &b, const std::string &name, unsigned int cash)
+ATM::ATM(std::unique_ptr<BankProxy> &b, const std::string &name, unsigned int cash)
 {
-    bankProxy = std::make_unique<BankProxy>(b);
+    bankProxy = std::move(b);
     cardReader = std::make_unique<CardReader>(name);
     superKeypad = std::make_unique<SuperKeypad>();
     cashDispenser = std::make_unique<CashDispenser>(cash);
     depositSlot = std::make_unique<DepositSlot>();
     receiptPrinter = std::make_unique<ReceiptPrinter>();
-    transactionList = std::make_unique<TransactionList>(maxTransactionAtm);
+    transactionList = std::make_unique<TransactionList>(MaxTransactionAtm);
 }
 
 // The activate method for the ATM class is the main driver for the
@@ -506,7 +524,7 @@ void ATM::activate()
         // Get a card.
         while (cardReader->readCard())
         {
-            const std::string account{cardReader->getAccount(account)};
+            const std::string account{cardReader->getAccount()};
             const std::string pin{cardReader->getPin()};
 
             // Try three times to verify the PIN.
@@ -534,16 +552,16 @@ void ATM::activate()
                 {
                     // Preprocess the transaction, if necessary. The default is to do
                     // nothing.
-                    if (transaction->preprocess(this))
+                    if (transaction->preprocess(*this))
                     {
                         // If preprocessing was successful, then process the Transaction.
                         // If the Bank says the Transaction is valid, then add it to the
                         // current list (for the receipt) and carry out any postprocessing.
 
-                        if (bankProxy->process(trans))
+                        if (bankProxy->process(*transaction))
                         {
-                            translist->addTrans(trans);
-                            transaction->postprocess(this);
+                            transactionList->addTransaction(*transaction);
+                            transaction->postprocess(*this);
                         }
                     }
                     else
@@ -557,8 +575,8 @@ void ATM::activate()
 
             // When we're done, print the receipt, clean up the Transaction
             // list, and eject the card. We're now ready to loop for another user.
-            receiptPrinter->print(translist);
-            translist->cleanup();
+            receiptPrinter->print(*transactionList);
+            transactionList->cleanup();
             cardReader->ejectCard();
         }
     }

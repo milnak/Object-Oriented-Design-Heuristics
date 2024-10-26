@@ -8,6 +8,8 @@
 #include "network.hpp"
 #include "trans.hpp"
 
+#include <iostream>
+
 // The send method, which takes a Transaction, is used by the ATM
 // side of the application to send a transaction to the Bank side of
 // the application. It asks the Transaction to packetize itself.
@@ -27,7 +29,7 @@
 
 bool Network::send(const Transaction &t)
 {
-    std::string buffer{t.packetsize()};
+    std::string buffer{t.packetize()};
     std::cout << "@Network Simulation@ Sending from the ATM to the Bank: '" << buffer << "'" << std::endl;
 
     // The reader would not send this string through their favorite
@@ -60,12 +62,12 @@ std::string Network::receive(int &status)
     std::getline(std::cin, buffer);
     if (buffer.size() == 4)
     {
-        status = std::atoi(buffer);
+        status = std::atoi(buffer.c_str());
         return std::string{};
     }
     else if (buffer.substr(4, 1) == " ")
     {
-        status = std::atoi(buffer);
+        status = std::atoi(buffer.c_str());
         return buffer.substr(5);
     }
     else

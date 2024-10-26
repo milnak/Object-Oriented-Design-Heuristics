@@ -2,19 +2,20 @@
 EXECUTABLE_NAME = ATM.exe
 DIR_SRC = .
 DIR_INCLUDE = .
-DIR_BIN = .\bin
+DIR_BIN = .\out\bin
 DIR_BIN_X86 = $(DIR_BIN)\x86
-DIR_INTERMEDIATE = .\intermediate
+DIR_INTERMEDIATE = .\out\int
 DIR_INTERMEDIATE_X86 = $(DIR_INTERMEDIATE)\x86
 
 SRC_FILES= \
   $(DIR_SRC)\Atm.cpp \
   $(DIR_SRC)\ATMMain.cpp \
   $(DIR_SRC)\Network.cpp \
+  $(DIR_SRC)\Trans.cpp \
 
 {$(DIR_SRC)}.cpp{$(DIR_INTERMEDIATE_X86)}.obj ::
 	@echo Compiling...
- 	cl /c /EHsc /std:c++17 /Z7 /Fo$(DIR_INTERMEDIATE_X86)\ /I$(DIR_INCLUDE) $<
+ 	cl /DATM_SIDE /c /EHsc /std:c++17 /Z7 /Fo$(DIR_INTERMEDIATE_X86)\ /I$(DIR_INCLUDE) $<
 
 $(EXECUTABLE_NAME) : $(DIR_INTERMEDIATE_X86)\*.obj
 	@echo Linking $(EXECUTABLE_NAME)...

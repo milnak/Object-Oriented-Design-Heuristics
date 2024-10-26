@@ -151,11 +151,10 @@ public:
 
 class BankProxy
 {
-    // TODO: should this be a shared_pointer? What's ownership?
-    Network &network;
+    std::unique_ptr<Network> network;
 
 public:
-    BankProxy(Network &);
+    BankProxy(std::unique_ptr<Network> &);
     bool process(const Transaction &);
 };
 
@@ -170,7 +169,7 @@ class ATM
     std::unique_ptr<TransactionList> transactionList;
 
 public:
-    ATM(const BankProxy &, const std::string &, unsigned int);
+    ATM(std::unique_ptr<BankProxy> &, const std::string &, unsigned int);
 
     void activate();
     bool retrieveEnvelope();
