@@ -18,16 +18,17 @@
 #include "atm.hpp"
 #include "trans.hpp"
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    if (argc != 3) {
-        cout << "Usage: " << argv[0] << " CardSlots ATMSlots" << endl;
+    if (argc != 3)
+    {
+        std::cout << "Usage: " << argv[0] << " CardSlots ATMSlots" << std::endl;
         return 1;
     }
 
-    std::unique_ptr<Network> network{ make_unique<Network>() };
-    std::unique_ptr<BankProxy> myBank{ make_unique<BankProxy>(network) };
-    std::unique_ptr<ATM> atm { make_unique<ATM>(myBank, "ATM1", 8500.00) };
+    std::unique_ptr<Network> network{std::make_unique<Network>()};
+    std::unique_ptr<BankProxy> myBank{std::make_unique<BankProxy>(network)};
+    std::unique_ptr<ATM> atm{std::make_unique<ATM>(myBank, "ATM1", 8500.00)};
 
     cardSlots = argv[1];
     atmSlots = argv[2];

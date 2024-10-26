@@ -1,5 +1,17 @@
 {
     "files.associations": {
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "iterator": "cpp",
+        "list": "cpp",
+        "vector": "cpp",
+        "initializer_list": "cpp",
+        "utility": "cpp",
+        "xstring": "cpp",
+        "xutility": "cpp",
+        "memory": "cpp",
+        "algorithm": "cpp",
+        "xmemory": "cpp",
+        "filesystem": "cpp",
+        "format": "cpp"
     }
 }

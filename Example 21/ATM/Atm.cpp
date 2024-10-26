@@ -2,13 +2,14 @@
 // side of the application. It consists of all methods and global
 // data definitions required by these classses.
 
-#include "network.h"
+#include "network.hpp"
 #include "atm.hpp"
 #include "trans.hpp"
 
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <string>
 
 // Definition of the two card slots in the ATM system, the
@@ -26,7 +27,7 @@ std::filesystem::path atmSlots;
 // application sees seven digits plus a terminating S or C for
 // savings and checking, respectively).
 
-bool badAccount(const string &account)
+bool badAccount(const std::string &account)
 {
     return std::all_of(account.begin(), account.end(), ::isdigit);
 }
@@ -34,7 +35,7 @@ bool badAccount(const string &account)
 // For now PIN and account nubmers use the same algorithm.
 // They may drift in the future.
 
-bool isBadPin(const string &pin)
+bool isBadPin(const std::string &pin)
 {
     return badAccount(pin);
 }
@@ -45,7 +46,7 @@ bool isBadPin(const string &pin)
 // hardware would take card of this naming problem. It appears in
 // this application onlyh for simplifying the simulation.
 
-PhysicalCardReader::PhysicalCardReader(const string &n) : name(n)
+PhysicalCardReader::PhysicalCardReader(const std::string &n) : name(n)
 {
 }
 
@@ -59,14 +60,14 @@ PhysicalCardReader::PhysicalCardReader(const string &n) : name(n)
 // to contain a seven-digit numeric string (account number)
 // followed by a four-digit numering string (PIN).
 
-string PhysicalCardReader::readinfo() const
+std::string PhysicalCardReader::readinfo() const
 {
     std::filesystem::path file{cardSlots.append(name)};
 
     std::ifstream ifs(file);
     ifs.exceptions(std::ios::failbit);
 
-    string info;
+    std::string info;
     std::getline(ifs, info);
 
     return info;
@@ -81,7 +82,7 @@ void PhysicalCardReader::ejectCard() const
     std::filesystem::path file{cardSlots};
     file.append(name);
 
-    std::filesystem::remove(file)
+    std::filesystem::remove(file);
 }
 
 // The simulation for eating cards is to move the BankCard file from
@@ -98,16 +99,14 @@ void PhysicalCardReader::eatCard() const
     old_p.append(name);
 
     std::filesystem::path new_p{atmSlots};
-    new_p.append(name + "." + std::to_string(count))
-}
-
-std::filesystem::rename(old_p, new_p);
+    new_p.append(name + "." + std::to_string(count));
+    std::filesystem::rename(old_p, new_p);
 }
 
 // The constructor for CardReader calls the constructor of its
 // PhysicalCardReader.
 
-CardReader::CardReader(const string &name) : physicalCardReader(name)
+CardReader::CardReader(const std::string &name) : physicalCardReader(name)
 {
 }
 
@@ -120,9 +119,9 @@ CardReader::CardReader(const string &name) : physicalCardReader(name)
 // string). If the data cannot be parsed (the card is not a valid
 // bank card), then a 1 is returend and the card is ejected.
 
-bool CardReader::readCard() const
+bool CardReader::readCard()
 {
-    string buf;
+    std::string buf;
 
     try
     {
@@ -143,7 +142,7 @@ bool CardReader::readCard() const
     // We have the information, parse it.
     // If the account number is bad, return 1 and eject.
 
-    const string account{buf.substr(0, 7)};
+    const std::string account{buf.substr(0, 7)};
 
     if (badAccount(account))
     {
@@ -153,11 +152,11 @@ bool CardReader::readCard() const
 
     // If the PIN is bad, return 1 and eject.
 
-    const string pin{buf.substr(8, 4)};
+    const std::string pin{buf.substr(8, 4)};
 
-    if (isBadPin(pin)
+    if (isBadPin(pin))
     {
-        PhysicalCardReader.ejectCard();
+        physicalCardReader.ejectCard();
         return false;
     }
 
@@ -172,24 +171,26 @@ bool CardReader::readCard() const
 // two separate key abstractions, i.e., the SuperKeypad and
 // the CardReader. Both return 0 on success, 1 on failure.
 
-bool CardReader::getAccount(string &acc) const
+std::string CardReader::getAccount() const
 {
     if (validCard)
     {
-        acc = account;
+        return account;
     }
 
-    return validCard;
+    // TODO: Throw InvalidCard exception?
+    return std::string{};
 }
 
-bool CardReader::getPin(string &p) const
+std::string CardReader::getPin() const
 {
     if (validCard)
     {
-        p = pin;
+        return pin;
     }
 
-    return validCard;
+    // TODO: Throw InvalidCard exception?
+    return std::string{};
 }
 
 // The following two methods simply delegate to their wrapped
@@ -228,21 +229,21 @@ void Keypad::disable()
 // the character read on success, NULL terminator if the keypad
 // is not enabled.
 
-char Keypad::getKey()
+char Keypad::getKey() const
 {
     // TODO: getchar()
     return enabled ? std::getchar() : '\0';
 }
 
-void DisplayScreen::displayMsg(const string &msg)
+void DisplayScreen::displayMsg(const std::string &msg)
 {
     std::cout << "@ATM Display@ " << msg << std::endl;
 }
 
 SuperKeypad::SuperKeypad()
 {
-    keypad = make_unique<Keypad>();
-    displayScreen = make_unique<DisplayScreen>();
+    keypad = std::make_unique<Keypad>();
+    displayScreen = std::make_unique<DisplayScreen>();
 }
 
 // This method delegates to contained display screen. Such
@@ -251,9 +252,9 @@ SuperKeypad::SuperKeypad()
 // get_transaction() methods provide more than enough cohesion
 // of data to justify the SuperKeypad's existence.
 
-void SuperKeypad::displayMsg(const string &msg)
+void SuperKeypad::displayMsg(const std::string &msg)
 {
-    displayScreen->displayMsg(msg)
+    displayScreen->displayMsg(msg);
 }
 
 // The verify_pin method enables the keypad, prompts the user
@@ -261,12 +262,13 @@ void SuperKeypad::displayMsg(const string &msg)
 // PIN. The method returns zero on success, nonzero
 // on failure.
 
-int SuperKeypad::verifyPin(const string &pinToVerify)
+bool SuperKeypad::verifyPin(const std::string &pinToVerify)
 {
     keypad->enable();
-    DisplayScreen->displayMsg("Enter Pin Number: ")
-        string pin;
-    while ((char c = keypad->getKey()) != EnterKey)
+    displayScreen->displayMsg("Enter Pin Number: ");
+    std::string pin;
+    char c;
+    while ((c = keypad->getKey()) != EnterKey)
     {
         pin += c;
     }
@@ -282,7 +284,7 @@ int SuperKeypad::verifyPin(const string &pinToVerify)
 // and hidden in the SuperKeypad class. Any classes higher in the
 // system are oblivious to the case analysis.
 
-Transaction *SuperKeypad::getTransaction(const string &account, const string &pin);
+std::unique_ptr<Transaction> SuperKeypad::getTransaction(const std::string &account, const std::string &pin)
 {
     std::string transactionAccount(account);
     char transType;
@@ -308,44 +310,46 @@ Transaction *SuperKeypad::getTransaction(const string &account, const string &pi
         return NULL;
     }
 
-    DisplayScreen->displayMsg("Enter Account Type (S/C): ");
+    displayScreen->displayMsg("Enter Account Type (S/C): ");
     transactionAccount += keypad->getKey();
     while (keypad->getKey() != EnterKey) /*nothing*/
         ;
 
     if (transType != 'B')
     {
-        DisplayScreen->displayMsg("Enter Amount: ");
+        displayScreen->displayMsg("Enter Amount: ");
         std::string amount_str;
-        while ((char c = keypad->getKey()) != EnterKey)
+        char c;
+        while ((c = keypad->getKey()) != EnterKey)
         {
             amount_str += c;
         }
-        amount = std::atof(amount_str);
+        amount = std::atof(amount_str.c_str());
     }
 
     if (transType == 'T')
     {
-        display->displayMsg("Enter Target Account Number: ");
+        displayScreen->displayMsg("Enter Target Account Number: ");
         std::string target_account;
-        while ((char c = keypad->getKey()) != EnterKey)
+        char c;
+        while ((c = keypad->getKey()) != EnterKey)
         {
             target_account += c;
         }
 
-        display->displayMsg("Enter Target Account Type (S/C): ");
+        displayScreen->displayMsg("Enter Target Account Type (S/C): ");
         target_account += keypad->getKey();
     }
     switch (transType)
     {
     case 'W':
-        return make_unique<Withdraw>(transactionAccount, pin, amount);
+        return std::make_unique<Withdraw>(transactionAccount, pin, amount);
     case 'D':
-        return make_unique<Deposit>(transactionAccount, pin, amount);
+        return std::make_unique<Deposit>(transactionAccount, pin, amount);
     case 'B':
-        return make_unique<Balance>(transactionAccount, pin);
+        return std::make_unique<Balance>(transactionAccount, pin);
     case 'T':
-        return make_unique<Transfer>(transactionAccount, pin, targetAccount, account);
+        return std::make_unique<Transfer>(transactionAccount, pin, targetAccount, account);
     default:
         std::cerr << "Unknown type in get_transaction switch statement" << std::endl;
         return NULL;
@@ -379,8 +383,7 @@ bool CashDispenser::dispense(unsigned int amount)
     }
 
     return false;
- }
-
+}
 
 bool DepositSlot::retrieveEnvelope()
 {
@@ -395,7 +398,7 @@ bool DepositSlot::retrieveEnvelope()
 // dispenser, this is left as an exercise to th e reader since it
 // adds no pedagogical benefit to this example.
 
-void ReceiptPrinter::print(const TransactionList& translist)
+void ReceiptPrinter::print(const TransactionList &translist)
 {
     std::cout << "@@ReceiptPrinter@ Your receipt is as follows:" << std::endl;
 
@@ -414,7 +417,7 @@ void ReceiptPrinter::print(const TransactionList& translist)
 // byte-transfer mechanism affect only the Network class's
 // implementation.)
 
-BankProxy::BankProxy(Network& n)
+BankProxy::BankProxy(Network &n)
 {
     network = n;
 }
@@ -432,20 +435,149 @@ BankProxy::BankProxy(Network& n)
 // the Balance derived transaction users this method to update it's
 // balance from the account in the Bank's application space.
 
-bool BankProxy::process(const Transaction& t)
+bool BankProxy::process(const Transaction &t)
 {
-    if(!network.send(t))
+    if (!network.send(t))
     {
         return false;
     }
 
     int status;
 
-    count = network.receive(status, other_info);
-    if (count)
+    const std::string other_info{network.receive(status)};
+    if (!other_info.empty())
     {
         t.update(other_info, count);
     }
 
     return status;
+}
+
+// A new ATM object is given its Bank Proxy, a name to be handed down
+// to its PhysicalCardReader (only needed for a simulation), and its
+// initial cash.
+
+ATM::ATM(const BankProxy &b, const std::string &name, unsigned int cash)
+{
+    bankProxy = std::make_unique<BankProxy>(b);
+    cardReader = std::make_unique<CardReader>(name);
+    superKeypad = std::make_unique<SuperKeypad>();
+    cashDispenser = std::make_unique<CashDispenser>(cash);
+    depositSlot = std::make_unique<DepositSlot>();
+    receiptPrinter = std::make_unique<ReceiptPrinter>();
+    transactionList = std::make_unique<TransactionList>(maxTransactionAtm);
+}
+
+// The activate method for the ATM class is the main driver for the
+// ATM objects. This method puts up the welcome message and waits
+// for a card to become available (in simulation, a card becomes
+// available when a user copies a file with the PhysicalCardReader's
+// name into the CardSlots directory). When a card is
+// available, the ATM retrieves the account and PIN from the
+// user and ensuring that it equals the one from the card. The
+// actual check will be done by the Bank, which ensures that the PIN
+// is equal to the one stored in the Account object.
+// Once the PIN is verified, this method asks the SuperKeypad to
+// collect and build a transaction. It preprocesses the
+// transaction (handling things like getting envelopes for
+// deposits, checking the cash dispenser to ensure enough cash is
+// available for a withdrawal, etc.). If preprocessing was
+// successful, it then asks its BankProxy to process the
+// transaction. This method packages up the transaction, ships it
+// over the network to the Bank's application, and collects a
+// response from the Bank's application via the network. Notice
+// the transparent nature of the interprocess communication. At
+// design time we were able to completely ignore this distributed
+// processing. Assuming the processing went well, we then execute
+// a postprocess, which performs tasks like giving the user his or
+// her money, etc. This method repeats the processing of the
+// transaction until the user selects Quit, which requires the
+// SuperKeypad::get_transaction method to return NULL. At this
+// time the receipt printer generates a receipt and ejects the
+// card.
+
+void ATM::activate()
+{
+    while (true)
+    {
+        superKeypad->displayMsg("Welcome to the Bank of Heuristics!");
+        superKeypad->displayMsg("Please Insert Your Card In the Card Reader");
+
+        // Get a card.
+        while (cardReader->readCard())
+        {
+            const std::string account{cardReader->getAccount(account)};
+            const std::string pin{cardReader->getPin()};
+
+            // Try three times to verify the PIN.
+            unsigned int count = 0;
+            bool verified;
+            do
+            {
+                verified = superKeypad->verifyPin(pin);
+
+            } while (!verified && count++ < 3);
+
+            // If it couldn't be verified,then eat the card.
+            if (!verified)
+            {
+                superKeypad->displayMsg("Sorry, three strikes and you're out!");
+                cardReader->eatCard();
+            }
+            else
+            {
+                // Otherwise, keep getting Transactions until the user asks to
+                // quit.
+
+                std::unique_ptr<Transaction> transaction;
+                while ((transaction = superKeypad->getTransaction(account, pin)) != NULL)
+                {
+                    // Preprocess the transaction, if necessary. The default is to do
+                    // nothing.
+                    if (transaction->preprocess(this))
+                    {
+                        // If preprocessing was successful, then process the Transaction.
+                        // If the Bank says the Transaction is valid, then add it to the
+                        // current list (for the receipt) and carry out any postprocessing.
+
+                        if (bankProxy->process(trans))
+                        {
+                            translist->addTrans(trans);
+                            transaction->postprocess(this);
+                        }
+                    }
+                    else
+                    {
+                        // If problems occur, display an appropriate message and continue.
+                        superKeypad->displayMsg("The Bank Refuses Your Transaction");
+                        superKeypad->displayMsg("Contact your Bank Representative.");
+                    }
+                }
+            }
+
+            // When we're done, print the receipt, clean up the Transaction
+            // list, and eject the card. We're now ready to loop for another user.
+            receiptPrinter->print(translist);
+            translist->cleanup();
+            cardReader->ejectCard();
+        }
+    }
+}
+
+// These are methods used by derived types of Transaction,
+// specifically, in their pre-/post-process methods.
+
+bool ATM::retrieveEnvelope()
+{
+    return depositSlot->retrieveEnvelope();
+}
+
+bool ATM::enoughCash(double amount)
+{
+    return cashDispenser->enoughCash(static_cast<unsigned int>(amount));
+}
+
+bool ATM::dispenseCash(double amount)
+{
+    return cashDispenser->dispense(static_cast<unsigned int>(amount));
 }

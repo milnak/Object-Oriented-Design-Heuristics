@@ -15,6 +15,11 @@
 
 #include "consts.hpp"
 
+// Forward references
+class Transaction;
+class TransactionList;
+class Network;
+
 // These two pointers provide the path for the Card
 // Reader's directory, which simulates where a card is
 // inserted, and the ATM's directory, where eaten cards
@@ -50,9 +55,9 @@ class PhysicalCardReader
     std::string name;
 
 public:
-    PhysicalCardReader(const string &);
+    PhysicalCardReader(const std::string &);
 
-    string readinfo() const;
+    std::string readinfo() const;
     void ejectCard() const;
     void eatCard() const;
 };
@@ -77,11 +82,11 @@ class CardReader
     std::string pin;
 
 public:
-    CardReader(const string &);
+    CardReader(const std::string &);
 
-    bool readCard() const;
-    bool getAccount(string &) const;
-    bool getPin(string &) const;
+    bool readCard();
+    std::string getAccount() const;
+    std::string getPin() const;
     void ejectCard() const;
     void eatCard() const;
 };
@@ -101,20 +106,20 @@ public:
 class DisplayScreen
 {
 public:
-    void displayMsg(const string &);
-}
+    void displayMsg(const std::string &);
+};
 
 class SuperKeypad
 {
-    unique_ptr<Keypad> keypad;
-    unique_ptr<DisplayScreen> displayScreen;
+    std::unique_ptr<Keypad> keypad;
+    std::unique_ptr<DisplayScreen> displayScreen;
 
 public:
     SuperKeypad();
 
-    void displayMsg(const string &);
-    int verifyPin(const string &);
-    Transaction *getTransaction(const string &, const string &);
+    void displayMsg(const std::string &);
+    bool verifyPin(const std::string &);
+    std::unique_ptr<Transaction> getTransaction(const std::string &, const std::string &);
 };
 
 class CashDispenser
@@ -156,22 +161,21 @@ public:
 
 class ATM
 {
-    BankProxy *bankProxy;
-    CardReader *cardReader;
-    SuperKeypad *superKeypad;
-    CashDispenser *cashDispenser;
-    DepositSlot *depositSlot;
-    ReceiptPrinter *receiptPrinter;
-    TransactionList *transactionList;
+    std::unique_ptr<BankProxy> bankProxy;
+    std::unique_ptr<CardReader> cardReader;
+    std::unique_ptr<SuperKeypad> superKeypad;
+    std::unique_ptr<CashDispenser> cashDispenser;
+    std::unique_ptr<DepositSlot> depositSlot;
+    std::unique_ptr<ReceiptPrinter> receiptPrinter;
+    std::unique_ptr<TransactionList> transactionList;
 
 public:
-    ATM(BankProxy *, const string &, int);
-    ~ATM();
+    ATM(const BankProxy &, const std::string &, unsigned int);
 
     void activate();
-    int retrieveEnvelope();
-    int enoughCash(double);
-    int dispenseCash(double);
+    bool retrieveEnvelope();
+    bool enoughCash(double);
+    bool dispenseCash(double);
 };
 
 #endif
