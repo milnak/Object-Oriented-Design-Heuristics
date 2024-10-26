@@ -1,4 +1,4 @@
-BUILDTARGET=atm.exe
+EXE_BASENAME=atm
 TARGETSRC= atmmain.cpp atm.cpp network.cpp trans.cpp
 TARGETOBJ=$(TARGETSRC:.cpp=.obj)
 
@@ -11,7 +11,7 @@ MAKE=nmake.exe /nologo
 
 !IFDEF DEBUG
 BUILDTYPE=debug
-CFLAGS = $(CFLAGS) /DDEBUG /Zi
+CFLAGS = $(CFLAGS) /DDEBUG /Zi /Fd$(OUT_DIR)\$(EXE_BASENAME).pdb
 LFLAGS = $(LFLAGS) /DEBUG
 !ELSE
 BUILDTYPE=release
@@ -31,8 +31,8 @@ usage:
     @echo.
     @echo "Supported Targets:"
     @echo.
-    @echo "debug      Debug Version of $(BUILDTARGET)"
-    @echo "release    Release Version of $(BUILDTARGET)"
+    @echo "debug      Debug Version of $(EXE_BASENAME)"
+    @echo "release    Release Version of $(EXE_BASENAME)"
     @echo "clean      Remove *.obj and executable"
     @echo.
 
@@ -43,13 +43,13 @@ release:
     @$(MAKE) /f Makefile RELEASE=1 bldtarget
 
 bldtarget: preproc $(TARGETOBJ)
-    $(LINK) $(LFLAGS) /out:$(OUT_DIR)\$(BUILDTARGET) $(OUT_DIR)\$(BUILDTYPE)\*.obj
+    $(LINK) $(LFLAGS) /out:$(OUT_DIR)\$(EXE_BASENAME).exe $(OUT_DIR)\$(BUILDTYPE)\*.obj
 
 preproc: bldmsg
     @if not exist $(OUT_DIR)\$(BUILDTYPE) mkdir $(OUT_DIR)\$(BUILDTYPE)
 
 bldmsg:
-    @echo Building $(BUILDTYPE) version $(BUILDTARGET)
+    @echo Building $(EXE_BASENAME) - $(BUILDTYPE)
     @echo.
 
 .cpp.obj :
@@ -58,5 +58,5 @@ bldmsg:
 clean:
     @if exist $(OUT_DIR)\debug\*.obj del $(OUT_DIR)\debug\*.obj
     @if exist $(OUT_DIR)\release\*.obj del $(OUT_DIR)\release\*.obj
-    @if exist $(BUILDTARGET) del $(BUILDTARGET)
+    @if exist $(OUT_DIR)\$(EXE_BASENAME).exe $(OUT_DIR)\$(EXE_BASENAME).exe
     @echo Clean complete
