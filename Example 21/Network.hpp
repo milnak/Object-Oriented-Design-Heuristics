@@ -20,7 +20,7 @@ class Transaction;
 class Network
 {
     // The user's favorite byte-transmission method goes here. See the
-    // implementatikon of the four methods to determine where the send
+    // implementation of the four methods to determine where the send
     // and receive for this method need to go.
 
 public:

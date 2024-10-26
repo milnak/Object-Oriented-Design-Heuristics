@@ -23,14 +23,15 @@
 std::filesystem::path cardSlots;
 std::filesystem::path atmSlots;
 
-// The checking of an account name determines that iut consists of
+// The checking of an account name determines that it consists of
 // numeric digits. (Note: The actual account on the Bank side of the
 // application sees seven digits plus a terminating S or C for
 // savings and checking, respectively).
 
 bool badAccount(const std::string &account)
 {
-    return std::all_of(account.begin(), account.end(), ::isdigit);
+    return !std::all_of(account.begin(), account.end(), [](char s)
+                       { return s >= '0' && s <= '9'; });
 }
 
 // For now PIN and account nubmers use the same algorithm.
@@ -63,9 +64,9 @@ PhysicalCardReader::PhysicalCardReader(const std::string &n) : name(n)
 
 std::string PhysicalCardReader::readinfo() const
 {
-    std::filesystem::path file{cardSlots.append(name)};
+    std::filesystem::path file{cardSlots};
+    file.append(name);
 
-    // TODO: catch (const std::system_error & e) and check e.code()
     std::ifstream ifs(file);
     ifs.exceptions(std::ios::failbit | std::ifstream::badbit);
 
@@ -123,6 +124,8 @@ CardReader::CardReader(const std::string &name) : physicalCardReader(name)
 
 bool CardReader::readCard()
 {
+    validCard = false;
+
     std::string buf;
 
     try
@@ -131,20 +134,23 @@ bool CardReader::readCard()
     }
     catch (const std::ifstream::failure &)
     {
-        // TODO: How to differentiate file not found from short read?
+        if (errno == ENOENT)
+        {
+            // If there is no card, then report it to ATM.
+            return false;
+        }
 
         // If the card couldn't be read, then eject it.
         physicalCardReader.ejectCard();
-        return false;
-
-        // If there is no card, then report it to ATM.
         return false;
     }
 
     // We have the information, parse it.
     // If the account number is bad, return 1 and eject.
 
-    if (badAccount(buf.substr(0, 7)))
+    account = buf.substr(0, 7);
+
+    if (badAccount(account))
     {
         physicalCardReader.ejectCard();
         return false;
@@ -152,7 +158,9 @@ bool CardReader::readCard()
 
     // If the PIN is bad, return 1 and eject.
 
-    if (isBadPin(buf.substr(8, 4)))
+    pin = buf.substr(8, 4);
+
+    if (isBadPin(pin))
     {
         physicalCardReader.ejectCard();
         return false;
@@ -456,6 +464,7 @@ bool BankProxy::process(const Transaction &t)
         return false;
     }
 
+    // TODO: Should return bool?
     int status;
 
     const std::string other_info{network->receive(status)};
