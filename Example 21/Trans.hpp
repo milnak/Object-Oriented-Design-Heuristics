@@ -10,8 +10,6 @@ class ATM;
 class Transaction
 {
 public:
-    Transaction(char, const std::string &);
-
     void update(const std::string &) const;
     bool preprocess(const ATM &) const;
     bool postprocess(const ATM &) const;

@@ -129,7 +129,7 @@ bool CardReader::readCard()
     {
         buf = physicalCardReader.readinfo();
     }
-    catch (const std::ifstream::failure &e)
+    catch (const std::ifstream::failure &)
     {
         // TODO: How to differentiate file not found from short read?
 
@@ -144,9 +144,7 @@ bool CardReader::readCard()
     // We have the information, parse it.
     // If the account number is bad, return 1 and eject.
 
-    const std::string account{buf.substr(0, 7)};
-
-    if (badAccount(account))
+    if (badAccount(buf.substr(0, 7)))
     {
         physicalCardReader.ejectCard();
         return false;
@@ -154,9 +152,7 @@ bool CardReader::readCard()
 
     // If the PIN is bad, return 1 and eject.
 
-    const std::string pin{buf.substr(8, 4)};
-
-    if (isBadPin(pin))
+    if (isBadPin(buf.substr(8, 4)))
     {
         physicalCardReader.ejectCard();
         return false;
@@ -234,7 +230,7 @@ void Keypad::disable()
 char Keypad::getKey() const
 {
     // TODO: getchar()
-    return enabled ? std::getchar() : '\0';
+    return enabled ? static_cast<char>(std::getchar()) : '\0';
 }
 
 void DisplayScreen::displayMsg(const std::string &msg)
@@ -416,7 +412,7 @@ void ReceiptPrinter::print(const TransactionList &transactionList)
         ofs.open("receipt");
         buf = ofs.rdbuf();
     }
-    catch (const std::ifstream::failure &e)
+    catch (const std::ifstream::failure &)
     {
         buf = std::cout.rdbuf();
     }

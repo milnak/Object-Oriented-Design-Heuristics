@@ -13,9 +13,10 @@
 // object, which sits in an infinite loop waiting for bank cards.
 
 #include <iostream>
+#include <memory>
 
-#include "network.hpp"
 #include "atm.hpp"
+#include "network.hpp"
 #include "trans.hpp"
 
 int main(int argc, char **argv)
@@ -27,8 +28,8 @@ int main(int argc, char **argv)
     }
 
     std::unique_ptr<Network> network{std::make_unique<Network>()};
-    std::unique_ptr<BankProxy> myBank{std::make_unique<BankProxy>(std::move(network))};
-    std::unique_ptr<ATM> atm{std::make_unique<ATM>(std::move(myBank), "ATM1", 8500)};
+    std::unique_ptr<BankProxy> myBank{std::make_unique<BankProxy>(network)};
+    std::unique_ptr<ATM> atm{std::make_unique<ATM>(myBank, "ATM1", 8500)};
 
     cardSlots = argv[1];
     atmSlots = argv[2];
