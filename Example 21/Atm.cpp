@@ -518,63 +518,64 @@ void ATM::activate()
         superKeypad->displayMsg("Please Insert Your Card In the Card Reader");
 
         // Get a card.
-        while (cardReader->readCard())
+        while (!cardReader->readCard())
         {
-            const std::string account{cardReader->getAccount()};
-            const std::string pin{cardReader->getPin()};
+        }
 
-            // Try three times to verify the PIN.
-            unsigned int count = 0;
-            bool verified;
-            do
+        const std::string account{cardReader->getAccount()};
+        const std::string pin{cardReader->getPin()};
+
+        // Try three times to verify the PIN.
+        unsigned int count = 0;
+        bool verified;
+        do
+        {
+            verified = superKeypad->verifyPin(pin);
+
+        } while (!verified && count++ < 3);
+
+        // If it couldn't be verified,then eat the card.
+        if (!verified)
+        {
+            superKeypad->displayMsg("Sorry, three strikes and you're out!");
+            cardReader->eatCard();
+        }
+        else
+        {
+            // Otherwise, keep getting Transactions until the user asks to
+            // quit.
+
+            std::unique_ptr<Transaction> transaction;
+            while ((transaction = superKeypad->getTransaction(account, pin)) != NULL)
             {
-                verified = superKeypad->verifyPin(pin);
-
-            } while (!verified && count++ < 3);
-
-            // If it couldn't be verified,then eat the card.
-            if (!verified)
-            {
-                superKeypad->displayMsg("Sorry, three strikes and you're out!");
-                cardReader->eatCard();
-            }
-            else
-            {
-                // Otherwise, keep getting Transactions until the user asks to
-                // quit.
-
-                std::unique_ptr<Transaction> transaction;
-                while ((transaction = superKeypad->getTransaction(account, pin)) != NULL)
+                // Preprocess the transaction, if necessary. The default is to do
+                // nothing.
+                if (transaction->preprocess(*this))
                 {
-                    // Preprocess the transaction, if necessary. The default is to do
-                    // nothing.
-                    if (transaction->preprocess(*this))
-                    {
-                        // If preprocessing was successful, then process the Transaction.
-                        // If the Bank says the Transaction is valid, then add it to the
-                        // current list (for the receipt) and carry out any postprocessing.
+                    // If preprocessing was successful, then process the Transaction.
+                    // If the Bank says the Transaction is valid, then add it to the
+                    // current list (for the receipt) and carry out any postprocessing.
 
-                        if (bankProxy->process(*transaction))
-                        {
-                            transactionList->addTransaction(*transaction);
-                            transaction->postprocess(*this);
-                        }
-                    }
-                    else
+                    if (bankProxy->process(*transaction))
                     {
-                        // If problems occur, display an appropriate message and continue.
-                        superKeypad->displayMsg("The Bank Refuses Your Transaction");
-                        superKeypad->displayMsg("Contact your Bank Representative.");
+                        transactionList->addTransaction(*transaction);
+                        transaction->postprocess(*this);
                     }
                 }
+                else
+                {
+                    // If problems occur, display an appropriate message and continue.
+                    superKeypad->displayMsg("The Bank Refuses Your Transaction");
+                    superKeypad->displayMsg("Contact your Bank Representative.");
+                }
             }
-
-            // When we're done, print the receipt, clean up the Transaction
-            // list, and eject the card. We're now ready to loop for another user.
-            receiptPrinter->print(*transactionList);
-            transactionList->cleanup();
-            cardReader->ejectCard();
         }
+
+        // When we're done, print the receipt, clean up the Transaction
+        // list, and eject the card. We're now ready to loop for another user.
+        receiptPrinter->print(*transactionList);
+        transactionList->cleanup();
+        cardReader->ejectCard();
     }
 }
 
