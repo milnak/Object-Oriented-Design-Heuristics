@@ -1,55 +1,92 @@
-// Trans.hpp: (This file wasn't in the book)
+// Trans.cpp: The source code for the Transaction classes. The
+// Transaction classes are interesting in that appear on  both
+// sides of the application. The Transaction objects on each side
+// of the application could be completely different definitions.
+// For convenience, they were made the same in this example. The
+// parts of the public interface unique to one side of thje
+// application are restricted through the use of the BANK_SIDE or
+// ATM_SIDE macros.
 
-#include "Trans.hpp"
+#ifdef ATM_SIDE
+#include "atm.hpp"
+#endif
 
-void Transaction::update(const std::string &) const
+#ifdef BANK_SIDE
+#include "bank.hpp"
+#endif
+
+#include "trans.hpp"
+
+#include <chrono>
+
+// The TimeStamp constructor uses the time and ctime standard C
+// library functions to create a simple string capturing date and
+// time.
+
+TimeStamp::TimeStamp()
+{
+    std::time_t result = std::time(nullptr);
+    dateTime = std::ctime(&result);
+}
+
+std::ostream &TimeStamp::operator<<(std::ostream &stream, const TimeStamp &timeStamp)
+{
+    stream << timeStamp.dateTime;
+    return stream;
+}
+
+Transaction::Transaction(const std::string &account, const std::string &p, double a) : sourceAccount(account),
+                                                                                       pin(p),
+                                                                                       amount(a)
 {
 }
 
-bool Transaction::preprocess(const ATM &) const
+std::string Transaction::getSourceAccount() const
+{
+    return sourceAccount;
+}
+
+void setAmount(double newAmount)
+{
+    amount = newAmount;
+}
+
+std::ostream & Transaction::operator<<(std::ostream &stream, const Transaction &timeStamp)
+{
+    // TODO: %4.2lf
+    stream << timeStamp << "\tAccount: " << sourceAccount << "\tAmount: " << amount << std::endl;
+}
+
+#ifdef ATM_SIDE
+
+bool Transaction::preprocess(const ATM& atm) const
 {
     return true;
 }
 
-bool Transaction::postprocess(const ATM &) const
-{
-    return true;
-}
-
-std::string Transaction::packetize() const
-{
-    // TODO: Complete
-    return std::string{};
-}
-
-Withdraw::Withdraw(const std::string &, const std::string &, double)
+void Transaction::postprocess(const ATM&) const
 {
 }
 
-Deposit::Deposit(const std::string &, const std::string &, double)
+void Transaction::update(const std::string&, int ) const
 {
 }
 
-Balance::Balance(const std::string &, const std::string &)
+void Transaction::packetize() const
 {
+    string buf;
+    buf += type();
+    buf += sourceAccount;
+    buf += " ";
+    buf += pin;
+    buf += amount; // TODO: %4.2lf
 }
+#endif
 
-Transfer::Transfer(const std::string &, const std::string &, const std::string &, const std::string &)
-{
-}
+// If this is the bank side of the application, include a
+// verifyAccount method, which checks if an account's name and
+// PIN match that of the Transaction.
 
-TransactionList::TransactionList(unsigned int)
-{
-}
+#ifdef BANK_SIDE
 
-void TransactionList::print(const std::streambuf *) const
-{
-}
-
-void TransactionList::addTransaction(const Transaction &)
-{
-}
-
-void TransactionList::cleanup()
-{
-}
+#endif
